@@ -50,7 +50,8 @@ Vitest/build · `scripts/m1_acceptance.py` · `scripts/e2e_flow.py` · `scripts/
   service dependency map drawn from the live topology, response-progress stepper derived from workflow records, URL-addressable
   tabs in the incident workspace, toasts, status filter chips, Ctrl/Cmd+K command palette with live incident search,
   g-prefixed keyboard shortcuts, audit-log activity feed, server-counted active-incident tile, tool-call waterfall, evidence filters, live approval expiry meter (display-only), Markdown/JSON incident export,
-  hypothesis-to-evidence graph, evaluation bar charts that print raw counts.
+  hypothesis-to-evidence graph, evaluation bar charts that print raw counts, side-by-side config diff (minimal changed span, shown in the
+  repair panel and approval queue; the confirmation dialog deliberately keeps the plain exact-action table).
   Metrics page (session 4): `GET /api/system/timeseries` (forge/telemetry/dashboard.py: 5 fixed PromQL panels, each checked against the
   investigator PromQL guard, window allowlist 15/60/360 min, per-panel failure isolation; 13 pytest tests PASS) and SVG line charts
   (legend, crosshair readout, keyboard access, table view). Charts carry event markers for checkout config changes and
