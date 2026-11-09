@@ -11,6 +11,7 @@ from functools import cached_property
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from forge.api.throttle import LoginThrottle
 from forge.investigation.engine import LLMInvestigator
 from forge.investigation.providers.gemini import GeminiProvider
 from forge.investigation.runbook import RunbookInvestigator
@@ -35,6 +36,10 @@ from shop.db import make_sync_engine
 @dataclass
 class Container:
     settings: ForgeSettings
+
+    @cached_property
+    def login_throttle(self) -> LoginThrottle:
+        return LoginThrottle()
 
     @cached_property
     def sessions(self) -> sessionmaker[Session]:
