@@ -23,6 +23,8 @@ TARGET_POINTS = 60
 MIN_STEP_S = 15
 MAX_SERIES = 8
 MAX_POINTS = 400
+MAX_ANNOTATIONS = 30
+LABEL_CHARS = 80
 
 
 @dataclass(frozen=True)
@@ -113,16 +115,74 @@ def fetch_panel(backend: MetricsBackend, panel: Panel, window_minutes: int, now:
 
 
 def fetch_dashboard(
-    backend: MetricsBackend, window_minutes: int, now: Callable[[], datetime] = lambda: datetime.now(UTC)
+    backend: MetricsBackend,
+    window_minutes: int,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    annotate: Callable[[datetime, datetime], list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     if window_minutes not in WINDOWS_MINUTES:
         raise ValueError(f"window must be one of {WINDOWS_MINUTES}")
     stamp = now()
     with ThreadPoolExecutor(max_workers=len(PANELS)) as pool:
         panels = list(pool.map(lambda p: fetch_panel(backend, p, window_minutes, stamp), PANELS))
+    annotations: list[dict[str, Any]] = []
+    annotations_error: str | None = None
+    if annotate:
+        try:
+            annotations = annotate(stamp - timedelta(minutes=window_minutes), stamp)
+        except TelemetryUnavailable as exc:  # the charts are still useful without the event markers
+            annotations_error = str(exc)
     return {
         "window_minutes": window_minutes,
         "step_s": step_for(window_minutes),
         "generated_at": stamp.isoformat(),
         "panels": panels,
+        "annotations": annotations,
+        "annotations_error": annotations_error,
     }
+
+
+def _as_utc(value: datetime | str) -> datetime | None:
+    try:
+        parsed = value if isinstance(value, datetime) else datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def build_annotations(
+    config_versions: list[dict[str, Any]],
+    incidents: list[tuple[str, str, datetime]],
+    start: datetime,
+    end: datetime,
+) -> list[dict[str, Any]]:
+    """Events that happened inside the chart window: configuration changes and incidents opening.
+
+    Both come from the control plane's own records, so a spike on a chart can be read against what changed.
+    Labels contain author names and incident titles; the UI renders them as text only.
+    """
+    found: list[dict[str, Any]] = []
+    for row in config_versions:
+        at = _as_utc(row.get("created_at", ""))
+        if at and start <= at <= end:
+            found.append(
+                {
+                    "ts": at.timestamp(),
+                    "kind": "config_change",
+                    "ref": str(row["version"]),
+                    "label": f"Checkout config v{row['version']} by {row.get('author', 'unknown')}"[:LABEL_CHARS],
+                }
+            )
+    for incident_id, title, opened in incidents:
+        at = _as_utc(opened)
+        if at and start <= at <= end:
+            found.append(
+                {
+                    "ts": at.timestamp(),
+                    "kind": "incident",
+                    "ref": incident_id,
+                    "label": f"Incident opened: {title}"[:LABEL_CHARS],
+                }
+            )
+    found.sort(key=lambda a: a["ts"])
+    return found[-MAX_ANNOTATIONS:]
