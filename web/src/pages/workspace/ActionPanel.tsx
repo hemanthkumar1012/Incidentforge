@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiError, api } from "../../api/client";
 import type { Approval, Proposal, RecoveryJob, ValidationRun } from "../../api/types";
 import { useAuth } from "../../auth";
+import { ConfigDiff } from "../../components/ConfigDiff";
 import { ExpiryMeter } from "../../components/ExpiryMeter";
 import { Badge, ChangeTable, ConfirmDialog, Time } from "../../components/ui";
 
@@ -32,8 +33,8 @@ export function ActionPanel({ proposal, validation, approval, recovery, onChange
       <h2 id="act-h">Proposed repair</h2>
       <div className="header-row"><code>{proposal.action_type}</code> on <strong>{proposal.target}</strong><Badge value={proposal.status} /></div>
       <p>{proposal.rationale}</p>
-      <ChangeTable changes={proposal.expected_effect ?? []} />
-      {!!proposal.side_effects?.length && <><h3>Also changes (side effects)</h3><ChangeTable changes={proposal.side_effects} /></>}
+      <ConfigDiff changes={proposal.expected_effect ?? []} />
+      {!!proposal.side_effects?.length && <><h3>Also changes (side effects)</h3><ConfigDiff changes={proposal.side_effects} /></>}
       <details><summary>Preconditions, validation and rollback procedure</summary>
         <h3>Preconditions</h3><ul>{proposal.preconditions?.map((p) => <li key={p}>{p}</li>)}</ul>
         <h3>Validation procedure</h3><ol>{proposal.validation_procedure?.map((p) => <li key={p}>{p}</li>)}</ol>
