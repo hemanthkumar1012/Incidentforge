@@ -33,7 +33,7 @@ from forge.db.models import AuditEvent, Incident
 from forge.domain.policy import ROLE_PERMISSIONS, Actor
 from forge.identity import AuthError, issue_token
 from forge.investigation.tool_catalog import INVESTIGATOR_SCOPES
-from forge.services.common import ServiceError
+from forge.services.common import ServiceError, TooManyRequests
 from forge.services.users import authenticate, ensure_bootstrap_users
 from forge.settings import ForgeSettings
 from forge.telemetry.dashboard import WINDOWS_MINUTES, build_annotations, fetch_dashboard
@@ -75,6 +75,7 @@ async def service_error(_: Request, exc: ServiceError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"code": exc.code, "message": exc.message, "details": exc.details}},
+        headers=exc.headers,
     )
 
 
@@ -100,10 +101,20 @@ class Login(BaseModel):
 
 @app.post("/api/auth/login", tags=["auth"])
 def login(body: Login, session: Session = Depends(db), c: Container = Depends(container)) -> dict[str, Any]:
+    throttle = c.login_throttle
+    wait = throttle.retry_after(body.username)
+    if wait:
+        raise TooManyRequests(
+            "too many failed sign-in attempts; try again later",
+            details={"retry_after_seconds": wait},
+            headers={"Retry-After": str(wait)},
+        )
     try:
         user = authenticate(session, body.username, body.password)
     except AuthError as exc:
+        throttle.record_failure(body.username)
         raise Unauthorized(str(exc)) from exc
+    throttle.record_success(body.username)
     return {
         "access_token": issue_token(user.username, user.role, c.settings.jwt_secret),
         "token_type": "bearer",
