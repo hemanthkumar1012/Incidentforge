@@ -25,7 +25,7 @@ psql, Node 22 + TypeScript (no React types).
 | `bash -n` on shell scripts | PASS |
 | `scripts/schema_probe.sh` on PG16 | PASS 10/10 |
 | forge `f0002` and shop `0002` SQL applied on PG16 (stubbed `alembic.op`) | PASS |
-| TypeScript transpile of all 52 web files (after the layout redesign, palette, waterfall, countdown, report, graph and chart work) | PASS (syntax only; no type check, no build, vitest not run) |
+| TypeScript transpile of all 55 web files (after the layout redesign, palette, waterfall, countdown, report, graph and chart work) | PASS (syntax only; no type check, no build, vitest not run) |
 | Pure logic added with the redesign (`lib/workflow.ts`, `graph.ts`, `palette.ts`, `timing.ts`, `countdown.ts`, `report.ts`, `evidenceGraph.ts`, `evalCharts.ts`) | PASS when compiled with tsc and run in node on the cases in the new tests; the vitest files themselves NOT RUN |
 
 ## NOT RUN (written, blocked)
@@ -50,6 +50,11 @@ Vitest/build · `scripts/m1_acceptance.py` · `scripts/e2e_flow.py` · `scripts/
   tabs in the incident workspace, toasts, status filter chips, Ctrl/Cmd+K command palette with live incident search,
   g-prefixed keyboard shortcuts, audit-log activity feed, server-counted active-incident tile, tool-call waterfall, evidence filters, live approval expiry meter (display-only), Markdown/JSON incident export,
   hypothesis-to-evidence graph, evaluation bar charts that print raw counts.
+  Metrics page (session 4): `GET /api/system/timeseries` (forge/telemetry/dashboard.py: 5 fixed PromQL panels, each checked against the
+  investigator PromQL guard, window allowlist 15/60/360 min, per-panel failure isolation; 13 pytest tests PASS) and SVG line charts
+  (legend, crosshair readout, keyboard access, table view). Series colours are the dataviz reference palette, validated for light and
+  dark surfaces (all checks PASS; the light-mode contrast WARN is covered by the legend, readout and table view). The Prometheus
+  query path itself has NOT run against a live Prometheus; metric label names were read from shop/common/telemetry.py, not observed.
   Robustness: per-route error boundary, lazy-loaded pages, focus/title/live-region announcement on navigation (not yet exercised in a browser). Not rendered in a browser; visual quality and contrast are unchecked.
 - CI: .github/workflows/ci.yml (backend+db+schema+audit, gitleaks, web, acceptance with sanitized artifacts).
 - Docs: README, operations, security, states, checkout-contract, evaluation, requirements-tests, known-issues,
