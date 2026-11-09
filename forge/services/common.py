@@ -24,10 +24,13 @@ class ServiceError(Exception):
     status_code = 400
     code = "bad_request"
 
-    def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, message: str, *, details: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.details = details or {}
+        self.headers = headers or {}
 
 
 class NotFound(ServiceError):
@@ -44,6 +47,10 @@ class Conflict(ServiceError):
 
 class PreconditionFailed(ServiceError):
     status_code, code = 412, "precondition_failed"
+
+
+class TooManyRequests(ServiceError):
+    status_code, code = 429, "too_many_requests"
 
 
 def new_id(prefix: str) -> str:
