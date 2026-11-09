@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import type { Evidence, Investigation, InvestigationDetail } from "../../api/types";
 import { Badge, ErrorState, Loading, StaleNotice, Time, UntrustedBlock } from "../../components/ui";
+import { Waterfall } from "../../components/Waterfall";
 import { usePolling } from "../../hooks/usePolling";
 
 const RUNNING = new Set(["queued", "running"]);
@@ -37,6 +38,7 @@ export function InvestigationView({ investigation, view = "all", onCite }: {
         {inv.status === "failed" && <p className="state failed" role="alert">Investigation failed: {inv.failure_reason}</p>}
         {inv.status === "budget_exhausted" && <p className="state denied">Budget exhausted before a conclusion: {inv.failure_reason}</p>}
         <Diagnosis inv={inv} onCite={cite} />
+        <Waterfall evidence={inv.evidence} onSelect={cite} />
         <h3>Timeline</h3>
         {inv.steps.length === 0 ? <p className="muted">No steps yet.</p> : (
           <ol className="timeline">{inv.steps.map((s) => (
@@ -76,11 +78,26 @@ function Diagnosis({ inv, onCite }: { inv: InvestigationDetail; onCite: (id: str
 }
 
 export function EvidencePanel({ evidence, focused }: { evidence: Evidence[]; focused: string | null }) {
+  const [tool, setTool] = useState("");
+  const [failedOnly, setFailedOnly] = useState(false);
+  const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const tools = Array.from(new Set(evidence.map((e) => e.tool))).sort();
+  // A cited item stays visible even if a filter would hide it, so a citation never leads nowhere.
+  const shown = evidence.filter((e) => e.id === focused
+    || ((!tool || e.tool === tool) && (!failedOnly || !e.ok) && (!flaggedOnly || e.injection_flags.length > 0)));
   return (
     <section className="card" aria-labelledby="ev-h">
-      <h2 id="ev-h">Evidence ({evidence.length})</h2>
+      <h2 id="ev-h">Evidence ({shown.length === evidence.length ? evidence.length : `${shown.length} of ${evidence.length}`})</h2>
       <p className="muted" style={{ fontSize: 13 }}>Raw results of the read-only tool calls. Content comes from the monitored system and is untrusted.</p>
-      {evidence.map((e) => (
+      {evidence.length > 1 && (
+        <div className="filters" role="group" aria-label="Filter evidence">
+          <label>Tool <select value={tool} onChange={(e) => setTool(e.target.value)}>
+            <option value="">all</option>{tools.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+          <label><input type="checkbox" checked={failedOnly} onChange={(e) => setFailedOnly(e.target.checked)} /> failed calls only</label>
+          <label><input type="checkbox" checked={flaggedOnly} onChange={(e) => setFlaggedOnly(e.target.checked)} /> flagged for injection only</label>
+        </div>)}
+      {shown.length === 0 && <p className="muted">No evidence matches the filters.</p>}
+      {shown.map((e) => (
         <details key={e.id} id={`evidence-${e.id}`} className={`evidence-item ${focused === e.id ? "highlight" : ""}`} open={focused === e.id || undefined}>
           <summary><strong>{e.id}</strong> <code>{e.tool}</code> {e.ok ? <Badge value="passed" label="ok" /> : <Badge value="failed" label={e.error?.code ?? "error"} />}
             {" "}<span className="muted">{e.summary} · {Math.round(e.duration_ms)} ms{e.truncated && " · truncated"}</span>
