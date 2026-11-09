@@ -14,6 +14,7 @@ import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,14 +29,14 @@ from sqlalchemy.orm import Session
 from forge.api import routes_incidents, routes_remediation
 from forge.api import serializers as ser
 from forge.api.deps import Unauthorized, container, current_actor, db
-from forge.db.models import AuditEvent
+from forge.db.models import AuditEvent, Incident
 from forge.domain.policy import ROLE_PERMISSIONS, Actor
 from forge.identity import AuthError, issue_token
 from forge.investigation.tool_catalog import INVESTIGATOR_SCOPES
 from forge.services.common import ServiceError
 from forge.services.users import authenticate, ensure_bootstrap_users
 from forge.settings import ForgeSettings
-from forge.telemetry.dashboard import WINDOWS_MINUTES, fetch_dashboard
+from forge.telemetry.dashboard import WINDOWS_MINUTES, build_annotations, fetch_dashboard
 from forge.telemetry.ports import TelemetryUnavailable
 from forge.telemetry.shop_adapters import HttpDiagnostics
 from forge.wiring import Container
@@ -161,12 +162,24 @@ class InvalidWindow(ServiceError):
 
 @app.get("/api/system/timeseries", tags=["system"])
 def system_timeseries(
-    window: int = 60, _: Actor = Depends(current_actor), c: Container = Depends(container)
+    window: int = 60,
+    _: Actor = Depends(current_actor),
+    session: Session = Depends(db),
+    c: Container = Depends(container),
 ) -> dict[str, Any]:
     """Fixed dashboard panels from Prometheus. The client picks only a window from a short allowlist."""
     if window not in WINDOWS_MINUTES:
         raise InvalidWindow(f"window must be one of {list(WINDOWS_MINUTES)} minutes")
-    return fetch_dashboard(c.prometheus, window)
+
+    def annotate(start: datetime, end: datetime) -> list[dict[str, Any]]:
+        opened = session.execute(
+            select(Incident.id, Incident.title, Incident.created_at).where(Incident.created_at.between(start, end))
+        ).all()
+        return build_annotations(
+            c.config_history.versions("checkout", limit=50), [(i, t, at) for i, t, at in opened], start, end
+        )
+
+    return fetch_dashboard(c.prometheus, window, annotate=annotate)
 
 
 @app.get("/api/audit", tags=["audit"])
