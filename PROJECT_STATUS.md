@@ -25,8 +25,8 @@ psql, Node 22 + TypeScript (no React types).
 | `bash -n` on shell scripts | PASS |
 | `scripts/schema_probe.sh` on PG16 | PASS 10/10 |
 | forge `f0002` and shop `0002` SQL applied on PG16 (stubbed `alembic.op`) | PASS |
-| TypeScript transpile of all 30 web files (after the layout redesign) | PASS (syntax only; no type check, no build, vitest not run) |
-| Pure logic added with the redesign (`lib/workflow.ts` stage derivation, `lib/graph.ts` topology layout) | PASS when compiled with tsc and run in node on the cases in the new tests; the vitest files themselves NOT RUN |
+| TypeScript transpile of all 38 web files (after the layout redesign and palette/waterfall work) | PASS (syntax only; no type check, no build, vitest not run) |
+| Pure logic added with the redesign (`lib/workflow.ts`, `lib/graph.ts`, `lib/palette.ts`, `lib/timing.ts`) | PASS when compiled with tsc and run in node on the cases in the new tests; the vitest files themselves NOT RUN |
 
 ## NOT RUN (written, blocked)
 
@@ -47,7 +47,8 @@ Vitest/build · `scripts/m1_acceptance.py` · `scripts/e2e_flow.py` · `scripts/
   Dockerfile+nginx), compose `web` on :3000.
 - Frontend layout (session 4): sidebar shell with breadcrumbs, dark/light theme, live pending-approvals count, KPI tiles,
   service dependency map drawn from the live topology, response-progress stepper derived from workflow records, URL-addressable
-  tabs in the incident workspace, toasts, status filter chips. Not rendered in a browser; visual quality and contrast are unchecked.
+  tabs in the incident workspace, toasts, status filter chips, Ctrl/Cmd+K command palette with live incident search,
+  g-prefixed keyboard shortcuts, audit-log activity feed, server-counted active-incident tile, tool-call waterfall, evidence filters. Not rendered in a browser; visual quality and contrast are unchecked.
 - CI: .github/workflows/ci.yml (backend+db+schema+audit, gitleaks, web, acceptance with sanitized artifacts).
 - Docs: README, operations, security, states, checkout-contract, evaluation, requirements-tests, known-issues,
   architecture.
