@@ -256,3 +256,13 @@ kbd { font: 12px var(--mono); background: var(--muted-bg); color: var(--muted); 
 .event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; } .event-list li { display: flex; gap: 8px; align-items: baseline; }
 .event-key { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid; font: 700 11px var(--font); flex: none; }
 .event-key.config_change { color: var(--warn); border-color: var(--warn); } .event-key.incident { color: var(--bad); border-color: var(--bad); }
+
+/* Side-by-side config diff */
+.diff { display: grid; gap: 8px; margin: 8px 0; } .diff-row { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--surface-2); }
+.diff-key { margin-bottom: 6px; } .diff-cols { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: start; }
+.diff-head { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 2px; } .diff-arrow { color: var(--muted); padding-top: 18px; }
+.diff-value { display: block; background: var(--code-bg); padding: 4px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+.diff-value mark { color: var(--ink); border-radius: 3px; padding: 0 1px; }
+.diff-value mark.removed { background: var(--bad-bg); text-decoration: line-through; text-decoration-color: var(--bad); }
+.diff-value mark.added { background: var(--ok-bg); font-weight: 600; }
+@media (max-width: 640px) { .diff-cols { grid-template-columns: 1fr; } .diff-arrow { display: none; } }
