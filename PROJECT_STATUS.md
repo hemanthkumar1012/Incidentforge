@@ -25,6 +25,7 @@ psql, Node 22 + TypeScript (no React types).
 | `bash -n` on shell scripts | PASS |
 | `scripts/schema_probe.sh` on PG16 | PASS 10/10 |
 | forge `f0002` and shop `0002` SQL applied on PG16 (stubbed `alembic.op`) | PASS |
+| Strict `tsc` over all 56 web files with the project's compiler flags (strict, noUnusedLocals/Parameters, noUncheckedIndexedAccess) but WITHOUT react/vite/vitest type packages (not installable here) | PARTIAL: zero unused imports/locals/parameters, zero unknown names, zero missing exports. The remaining ~1,100 errors are all consequences of the absent React types (implicit-any event parameters, JSX intrinsic elements, `key` props). Real `npm run typecheck` NOT RUN |
 | TypeScript transpile of all 56 web files (after the layout redesign, palette, waterfall, countdown, report, graph and chart work) | PASS (syntax only; no type check, no build, vitest not run) |
 | Pure logic added with the redesign (`lib/workflow.ts`, `graph.ts`, `palette.ts`, `timing.ts`, `countdown.ts`, `report.ts`, `evidenceGraph.ts`, `evalCharts.ts`) | PASS when compiled with tsc and run in node on the cases in the new tests; the vitest files themselves NOT RUN |
 
