@@ -81,3 +81,9 @@ export interface EvaluationRun {
   summary?: Record<string, string | number | null>[];
   trials?: Record<string, unknown>[];
 }
+
+export interface TimeseriesPanel {
+  id: string; title: string; unit: string; error: string | null;
+  series: { label: string; points: [number, number | null][] }[];
+}
+export interface Timeseries { window_minutes: number; step_s: number; generated_at: string; panels: TimeseriesPanel[] }
