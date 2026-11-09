@@ -1,0 +1,29 @@
+# TLS-terminating front for forge-api. Caddy obtains and renews certificates automatically
+# for {$API_DOMAIN}; ports 80 and 443 must be reachable for that.
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	@api path /api/*
+	handle @api {
+		request_body {
+			max_size 256KB
+		}
+		reverse_proxy forge-api:8080 {
+			header_up -X-Forwarded-For
+			transport http {
+				response_header_timeout 30s
+			}
+		}
+	}
+
+	# Anything that is not /api/* (including /docs and /openapi.json) is not published.
+	handle {
+		respond "not found" 404
+	}
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+}
