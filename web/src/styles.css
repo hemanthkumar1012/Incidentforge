@@ -192,3 +192,15 @@ input, select, textarea { font: inherit; padding: 7px 9px; border: 1px solid var
 .palette-empty { color: var(--muted); cursor: default !important; }
 kbd { font: 12px var(--mono); background: var(--muted-bg); color: var(--muted); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 6px; white-space: nowrap; }
 .shortcut-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; } .shortcut-list dt { text-align: right; } .shortcut-list dd { margin: 0; }
+
+/* Tool-call waterfall */
+.waterfall { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.waterfall li { display: grid; grid-template-columns: minmax(150px, 220px) 1fr 84px; gap: 10px; align-items: center; }
+.wf-label { all: unset; cursor: pointer; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-label:hover { text-decoration: underline; } .wf-label:focus-visible { outline: 3px solid var(--focus); }
+.wf-track { position: relative; height: 12px; background: var(--muted-bg); border-radius: 6px; overflow: hidden; }
+.wf-bar { position: absolute; top: 0; bottom: 0; background: var(--info); border-radius: 6px; } .wf-bar.bad { background: var(--bad); }
+.wf-time { font: 12px var(--mono); color: var(--muted); text-align: right; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 10px; }
+.filters label { display: inline-flex; gap: 6px; align-items: center; font-weight: 500; margin: 0; } .filters input[type="checkbox"] { width: auto; }
+.filters select { width: auto; }
