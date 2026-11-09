@@ -204,3 +204,10 @@ kbd { font: 12px var(--mono); background: var(--muted-bg); color: var(--muted); 
 .filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 10px; }
 .filters label { display: inline-flex; gap: 6px; align-items: center; font-weight: 500; margin: 0; } .filters input[type="checkbox"] { width: auto; }
 .filters select { width: auto; }
+
+/* Approval expiry meter */
+.expiry { display: inline-flex; align-items: center; gap: 8px; font: 12px var(--mono); color: var(--muted); vertical-align: middle; }
+.expiry-track { width: 84px; height: 6px; border-radius: 3px; background: var(--muted-bg); overflow: hidden; display: inline-block; }
+.expiry-fill { display: block; height: 100%; background: var(--ok); transition: width 1s linear; }
+.expiry.soon { color: var(--warn); } .expiry.soon .expiry-fill { background: var(--warn); }
+.expiry.expired { color: var(--bad); } .expiry.expired .expiry-fill { background: var(--bad); }
