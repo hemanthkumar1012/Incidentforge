@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -6,6 +6,7 @@ from forge.investigation.promql import check_promql
 from forge.telemetry.dashboard import (
     PANELS,
     WINDOWS_MINUTES,
+    build_annotations,
     fetch_dashboard,
     fetch_panel,
     shape_series,
@@ -77,3 +78,53 @@ def test_window_is_an_allowlist_and_range_ends_at_the_snapshot_time():
     _, start, end, step = backend.calls[0]
     assert end == NOW and (end - start).total_seconds() == 15 * 60 and step == 15
     assert set(WINDOWS_MINUTES) == {15, 60, 360}
+
+
+# --- annotations -----------------------------------------------------------------------------------------------
+
+
+def test_annotations_include_only_events_inside_the_window_in_time_order():
+    start, end = NOW - timedelta(minutes=60), NOW
+    versions = [
+        {"version": 3, "author": "olivia", "created_at": (NOW - timedelta(minutes=10)).isoformat()},
+        {"version": 2, "author": "lab", "created_at": (NOW - timedelta(hours=5)).isoformat()},
+    ]
+    incidents = [("inc1", "Checkout failing", NOW - timedelta(minutes=5))]
+    result = build_annotations(versions, incidents, start, end)
+    assert [(a["kind"], a["ref"]) for a in result] == [("config_change", "3"), ("incident", "inc1")]
+    assert result[0]["label"] == "Checkout config v3 by olivia"
+
+
+def test_annotations_accept_zulu_and_naive_timestamps_and_skip_garbage():
+    start, end = NOW - timedelta(minutes=60), NOW
+    zulu = (NOW - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    naive = (NOW - timedelta(minutes=2)).replace(tzinfo=None).isoformat()
+    versions = [
+        {"version": 1, "author": "a", "created_at": zulu},
+        {"version": 2, "author": "b", "created_at": naive},
+        {"version": 3, "author": "c", "created_at": "not a date"},
+    ]
+    assert [a["ref"] for a in build_annotations(versions, [], start, end)] == ["2", "1"]
+
+
+def test_long_incident_titles_are_truncated_and_the_list_is_capped():
+    start, end = NOW - timedelta(minutes=60), NOW
+    long_title = "x" * 500
+    one = build_annotations([], [("i", long_title, NOW)], start, end)
+    assert len(one[0]["label"]) == 80
+    many = [(f"i{n}", "t", NOW - timedelta(seconds=n)) for n in range(100)]
+    assert len(build_annotations([], many, start, end)) == 30
+
+
+def test_dashboard_survives_an_annotation_failure():
+    def broken(_start, _end):
+        raise TelemetryUnavailable("config database unreachable")
+
+    result = fetch_dashboard(RecordingBackend(), 60, now=lambda: NOW, annotate=broken)
+    assert result["annotations"] == [] and result["annotations_error"] == "config database unreachable"
+    assert len(result["panels"]) == len(PANELS)
+
+
+def test_dashboard_without_an_annotator_has_no_annotations():
+    result = fetch_dashboard(RecordingBackend(), 60, now=lambda: NOW)
+    assert result["annotations"] == [] and result["annotations_error"] is None
