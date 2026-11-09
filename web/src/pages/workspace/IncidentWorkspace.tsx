@@ -8,6 +8,7 @@ import { Tabs } from "../../components/Tabs";
 import { useToast } from "../../components/Toasts";
 import { Badge, ConfirmDialog, Empty, ErrorState, Loading, StaleNotice, Time } from "../../components/ui";
 import { usePolling } from "../../hooks/usePolling";
+import { buildReport, downloadText } from "../../lib/report";
 import { deriveStages } from "../../lib/workflow";
 import { ActionPanel } from "./ActionPanel";
 import { InvestigationView } from "./InvestigationView";
@@ -103,6 +104,16 @@ function IncidentHeader({ w, onChange }: { w: Workspace; onChange: () => void })
     try { await api.startInvestigation(i.id, mode || undefined); toast.push("info", "Investigation queued."); onChange(); }
     catch (err) { setError(err instanceof ApiError ? err.message : String(err)); }
   }
+  async function exportReport(kind: "md" | "json") {
+    setError(null);
+    try {
+      const audit = (await api.timeline(i.id)).items;
+      const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
+      if (kind === "md") downloadText(`incident-${i.id.slice(0, 8)}-${stamp}.md`, "text/markdown", buildReport(w, audit));
+      else downloadText(`incident-${i.id.slice(0, 8)}-${stamp}.json`, "application/json", JSON.stringify({ workspace: w, audit }, null, 2));
+      toast.push("ok", kind === "md" ? "Report downloaded." : "Data downloaded.");
+    } catch (err) { setError(err instanceof ApiError ? err.message : String(err)); }
+  }
   async function close() {
     try { await api.closeIncident(i.id, "closed from workspace"); setClosing(false); toast.push("ok", "Incident closed."); onChange(); }
     catch (err) { setError(err instanceof ApiError ? err.message : String(err)); setClosing(false); }
@@ -115,6 +126,10 @@ function IncidentHeader({ w, onChange }: { w: Workspace; onChange: () => void })
         {i.resolved_at && <> · resolved <Time iso={i.resolved_at} /></>}{i.synthetic_traffic && " · synthetic traffic"}</p>
       {affected.length > 0 && <p><strong>Affected:</strong> {affected.join(", ")}</p>}
       <Stepper stages={deriveStages(w)} />
+      <div className="toolbar" aria-label="Export">
+        <button onClick={() => exportReport("md")}>Export report (.md)</button>
+        <button onClick={() => exportReport("json")}>Export data (.json)</button>
+      </div>
       {!["resolved", "closed"].includes(i.status) && (
         <div className="toolbar">
           {can("investigation:run") && <>
