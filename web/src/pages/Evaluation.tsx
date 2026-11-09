@@ -1,4 +1,5 @@
 import { api } from "../api/client";
+import { EvalCharts } from "../components/EvalCharts";
 import { Empty, ErrorState, Loading } from "../components/ui";
 import { usePolling } from "../hooks/usePolling";
 
@@ -17,6 +18,7 @@ export function Evaluation() {
             <h2>Run {run.generated_at}</h2>
             <p>Scenarios: {run.scenarios?.join(", ")} · trials: {run.trials?.length ?? 0}</p>
             {(run.scenarios?.length ?? 0) < 3 && <p className="state denied"><strong>Limited scope:</strong> only {run.scenarios?.length} scenario(s). These results do not show generalisation.</p>}
+            <EvalCharts rows={run.summary ?? []} />
             <div style={{ overflowX: "auto" }}><table className="table compact">
               <thead><tr>{Object.keys(run.summary?.[0] ?? {}).map((k) => <th key={k} scope="col">{k.replaceAll("_", " ")}</th>)}</tr></thead>
               <tbody>{run.summary?.map((row, i) => <tr key={i}>{Object.values(row).map((v, j) => <td key={j}>{v === null ? "—" : String(v)}</td>)}</tr>)}</tbody>
