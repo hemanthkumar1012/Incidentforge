@@ -27,9 +27,9 @@ export function Login() {
   }
 
   return (
-    <main className="main" style={{ maxWidth: 420, margin: "10vh auto" }}>
+    <main className="main" style={{ maxWidth: 440, margin: "10vh auto", padding: "0 16px" }}>
       <div className="card">
-        <h1>IncidentForge</h1>
+        <div className="header-row" style={{ marginBottom: 8 }}><span className="brand-mark" aria-hidden="true" /><h1>IncidentForge</h1></div>
         <p className="muted">Incident investigation and verified recovery for the demo shop. All traffic and data are synthetic.</p>
         <form onSubmit={submit} noValidate>
           <div className="field">
