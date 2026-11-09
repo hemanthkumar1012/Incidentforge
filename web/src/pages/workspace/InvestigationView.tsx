@@ -9,17 +9,23 @@ const MODE_LABEL: Record<string, string> = {
   runbook: "Runbook (deterministic rules, no LLM)", llm: "LLM investigator with tools", llm_summary: "LLM with fixed summary (baseline)",
 };
 
-export function InvestigationView({ investigation }: { investigation: Investigation }) {
+// `view` lets the workspace put the analysis and the raw evidence on separate tabs; the default shows both.
+export type InvestigationViewMode = "all" | "analysis" | "evidence";
+
+export function InvestigationView({ investigation, view = "all", onCite }: {
+  investigation: Investigation; view?: InvestigationViewMode; onCite?: () => void;
+}) {
   const q = usePolling((s) => api.investigation(investigation.id, s), 2_000,
                        (d) => !d || RUNNING.has(d.status), [investigation.id]);
   const [focused, setFocused] = useState<string | null>(null);
+  const cite = (id: string) => { setFocused(id); onCite?.(); };
   if (q.loading) return <Loading what="investigation" />;
   if (q.error && !q.data) return <ErrorState error={q.error} onRetry={q.refresh} />;
   const inv = q.data as InvestigationDetail;
 
   return (
     <div className="grid" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>
-      <section className="card" aria-labelledby="inv-h">
+      {view !== "evidence" && <section className="card" aria-labelledby="inv-h">
         <div className="header-row">
           <h2 id="inv-h" style={{ margin: 0 }}>Investigation</h2><Badge value={inv.status} />
           <span className="muted">{MODE_LABEL[inv.mode] ?? inv.mode} · {inv.provider}{inv.model !== "none" && ` / ${inv.model}`}</span>
@@ -30,17 +36,17 @@ export function InvestigationView({ investigation }: { investigation: Investigat
         {RUNNING.has(inv.status) && <p role="status">Investigation {inv.status}… the timeline updates as evidence is collected.</p>}
         {inv.status === "failed" && <p className="state failed" role="alert">Investigation failed: {inv.failure_reason}</p>}
         {inv.status === "budget_exhausted" && <p className="state denied">Budget exhausted before a conclusion: {inv.failure_reason}</p>}
-        <Diagnosis inv={inv} onCite={setFocused} />
+        <Diagnosis inv={inv} onCite={cite} />
         <h3>Timeline</h3>
         {inv.steps.length === 0 ? <p className="muted">No steps yet.</p> : (
           <ol className="timeline">{inv.steps.map((s) => (
             <li key={s.seq} className={`k-${s.kind}`}>
               <strong>{s.kind.replaceAll("_", " ")}</strong> {s.tool && <code>{s.tool}</code>} — {s.summary}
-              {s.evidence_id && <> <button className="link" onClick={() => setFocused(s.evidence_id)}>{s.evidence_id}</button></>}
+              {s.evidence_id && <> <button className="link" onClick={() => cite(s.evidence_id!)}>{s.evidence_id}</button></>}
               <div className="muted" style={{ fontSize: 12 }}><Time iso={s.created_at} /></div>
             </li>))}</ol>)}
-      </section>
-      <EvidencePanel evidence={inv.evidence} focused={focused} />
+      </section>}
+      {view !== "analysis" && <EvidencePanel evidence={inv.evidence} focused={focused} />}
     </div>
   );
 }
