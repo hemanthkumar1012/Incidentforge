@@ -1,9 +1,13 @@
-import { useState, type ReactNode } from "react";
-import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api } from "./api/client";
 import { RequireAuth, useAuth } from "./auth";
+import { CommandPalette } from "./components/CommandPalette";
 import { Icon, type IconName } from "./components/icons";
+import { ConfirmDialog } from "./components/ui";
 import { usePolling } from "./hooks/usePolling";
+import { useShortcuts, type Shortcut } from "./hooks/useShortcuts";
+import type { Command } from "./lib/palette";
 import { ApprovalQueue } from "./pages/ApprovalQueue";
 import { Evaluation } from "./pages/Evaluation";
 import { Incidents } from "./pages/Incidents";
@@ -63,6 +67,37 @@ function Shell({ children }: { children: ReactNode }) {
   const { me, logout, can } = useAuth();
   const { theme, toggle } = useTheme();
   const [collapsed, setCollapsed] = useState(storedCollapsed);
+  const navigate = useNavigate();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { keys: "g o", description: "Go to Overview", run: () => navigate("/") },
+    { keys: "g i", description: "Go to Incidents", run: () => navigate("/incidents") },
+    { keys: "g a", description: "Go to Approvals", run: () => navigate("/approvals") },
+    { keys: "g e", description: "Go to Evaluation", run: () => navigate("/evaluation") },
+    { keys: "t", description: "Toggle light/dark theme", run: toggle },
+    { keys: "?", description: "Show keyboard shortcuts", run: () => setHelpOpen(true) },
+  ], [navigate, toggle]);
+  useShortcuts(shortcuts);
+
+  // Ctrl/Cmd+K is handled separately because the shortcut hook deliberately ignores modifier keys.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPaletteOpen((o) => !o); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const commands: Command[] = useMemo(() => [
+    ...shortcuts.filter((x) => x.keys.startsWith("g ")).map((x) => ({
+      id: `go-${x.keys}`, label: x.description.replace("Go to ", ""), group: "Go to", hint: x.keys, run: x.run,
+    })),
+    { id: "theme", label: "Toggle theme", group: "Action", hint: "t", keywords: "dark light appearance", run: toggle },
+    { id: "help", label: "Keyboard shortcuts", group: "Action", hint: "?", keywords: "help keys", run: () => setHelpOpen(true) },
+    { id: "signout", label: "Sign out", group: "Action", keywords: "logout", run: logout },
+  ], [shortcuts, toggle, logout]);
   function toggleSidebar() {
     setCollapsed((c) => {
       try { window.localStorage.setItem(SIDEBAR_KEY, c ? "expanded" : "collapsed"); } catch { /* not remembered */ }
@@ -95,6 +130,9 @@ function Shell({ children }: { children: ReactNode }) {
         <header className="topbar">
           <Breadcrumbs />
           <span className="spacer" />
+          <button onClick={() => setPaletteOpen(true)} aria-label="Open command palette" title="Command palette">
+            Search <kbd>Ctrl K</kbd>
+          </button>
           <span className="env-pill" title="Demo shop, synthetic traffic, injected faults">Research lab · not production</span>
           <button className="icon-btn" onClick={toggle} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
             <Icon name={theme === "dark" ? "sun" : "moon"} />
@@ -102,6 +140,14 @@ function Shell({ children }: { children: ReactNode }) {
         </header>
         <main id="main" className="main" tabIndex={-1}>{children}</main>
       </div>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
+      <ConfirmDialog open={helpOpen} title="Keyboard shortcuts" confirmLabel="Close" onConfirm={() => setHelpOpen(false)} onCancel={() => setHelpOpen(false)}>
+        <dl className="shortcut-list">
+          {shortcuts.map((x) => <Fragment key={x.keys}><dt><kbd>{x.keys}</kbd></dt><dd>{x.description}</dd></Fragment>)}
+          <dt><kbd>Ctrl K</kbd></dt><dd>Command palette (also Cmd K)</dd>
+        </dl>
+        <p className="muted">Shortcuts are off while you type in a field.</p>
+      </ConfirmDialog>
     </div>
   );
 }
