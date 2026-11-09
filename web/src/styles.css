@@ -211,3 +211,10 @@ kbd { font: 12px var(--mono); background: var(--muted-bg); color: var(--muted); 
 .expiry-fill { display: block; height: 100%; background: var(--ok); transition: width 1s linear; }
 .expiry.soon { color: var(--warn); } .expiry.soon .expiry-fill { background: var(--warn); }
 .expiry.expired { color: var(--bad); } .expiry.expired .expiry-fill { background: var(--bad); }
+
+/* Hypothesis-to-evidence graph */
+.egraph { width: 100%; height: auto; max-width: 640px; } .egraph text { fill: var(--ink); font: 12px var(--font); }
+.egraph .gnode rect { fill: var(--surface-2); stroke: var(--line); stroke-width: 1.5; } .egraph .gnode.ev { cursor: pointer; }
+.egraph .gnode.ev:hover rect, .egraph .gnode.ev:focus-visible rect { stroke: var(--accent); } .egraph .gnode.ev:focus-visible { outline: none; }
+.egraph .gnode.shared rect { stroke-width: 3; stroke: var(--info); } .egraph .gnode.failed rect { stroke: var(--bad); }
+.egraph .link { fill: none; stroke-width: 1.6; } .egraph .link.supports { stroke: var(--ok); } .egraph .link.contradicts { stroke: var(--bad); stroke-dasharray: 5 4; }
