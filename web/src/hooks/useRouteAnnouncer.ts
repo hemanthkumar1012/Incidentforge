@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Overview"], [/^\/incidents\/[^/]+/, "Incident"], [/^\/incidents/, "Incidents"],
-  [/^\/approvals/, "Approvals"], [/^\/evaluation/, "Evaluation"],
+  [/^\/metrics/, "Metrics"], [/^\/approvals/, "Approvals"], [/^\/evaluation/, "Evaluation"],
 ];
 
 export function titleFor(pathname: string): string {
