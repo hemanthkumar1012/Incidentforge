@@ -1,0 +1,19 @@
+# Runtime dependencies for the demo shop services and the Incident Lab.
+# Versions checked against public release listings on 2026-11-08 where possible
+# (see docs/dependencies.md). Generate a fully pinned lock with
+#   pip-compile requirements/shop.txt   (or: uv pip compile)
+fastapi==0.136.1
+uvicorn[standard]==0.54.0
+sqlalchemy[asyncio]==2.0.51
+alembic>=1.16,<2
+psycopg[binary]>=3.2,<4
+httpx>=0.28,<0.29
+pydantic>=2.11,<3
+prometheus-client>=0.22,<1
+PyYAML>=6.0.2,<7
+opentelemetry-api==1.45.0
+opentelemetry-sdk==1.45.0
+opentelemetry-exporter-otlp-proto-http==1.45.0
+opentelemetry-instrumentation-fastapi==0.66b0
+opentelemetry-instrumentation-httpx==0.66b0
+opentelemetry-instrumentation-sqlalchemy==0.66b0

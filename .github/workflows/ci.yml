@@ -1,0 +1,106 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30
+    env:
+      TEST_ADMIN_DSN: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install -r requirements/dev.txt pip-audit
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: python -m mypy forge shop lab
+      - run: python -m pytest tests/unit -q
+      - name: PostgreSQL integration tests
+        run: python -m pytest tests/db -m db -q -rs
+      - name: Schema probe
+        run: |
+          psql "$TEST_ADMIN_DSN" -c "CREATE DATABASE forge_probe"
+          FORGE_PROBE_DSN=postgresql://postgres:postgres@localhost:5432/forge_probe scripts/schema_probe.sh
+      - name: Dependency audit
+        run: pip-audit -r requirements/shop.txt -r requirements/forge.txt
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: npm install
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
+  acceptance:
+    runs-on: ubuntu-latest
+    needs: [backend, web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - name: Create CI-only .env (throwaway secrets)
+        run: |
+          r() { openssl rand -hex 12; }
+          {
+            for v in SHOP LAB FORGE FORGE_READER FORGE_REMEDIATOR SANDBOX; do echo "${v}_DB_PASSWORD=ci-$(r)"; done
+            echo "POSTGRES_PASSWORD=ci-$(r)"
+            echo "LAB_ADMIN_TOKEN=ci-$(r)"
+            echo "SANDBOX_ADMIN_TOKEN=ci-$(r)"
+            echo "FORGE_JWT_SECRET=ci-$(openssl rand -hex 32)"
+            OP=ci-op-$(r); AP=ci-ap-$(r); VW=ci-vw-$(r)
+            echo "FORGE_BOOTSTRAP_USERS=olivia:operator:${OP},arun:approver:${AP},vera:viewer:${VW}"
+            echo "EVAL_OPERATOR=olivia:${OP}"
+            echo "EVAL_APPROVER=arun:${AP}"
+            echo "FORGE_DEFAULT_MODE=runbook"
+          } > .env
+      - run: make up
+      - run: make acceptance
+      - run: make sandbox-check
+      - run: make e2e
+      - run: make evaluate MODES=runbook TRIALS=2
+      - name: Collect sanitized logs on failure
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          docker compose logs --no-color --tail=500 > artifacts/compose.log 2>&1 || true
+          python3 - <<'PY'
+          import pathlib, re
+          secrets = [l.split("=", 1)[1] for l in pathlib.Path(".env").read_text().splitlines() if "=" in l]
+          for path in pathlib.Path("artifacts").rglob("*"):
+              if path.is_file() and path.suffix in {".log", ".json", ".txt", ".md"}:
+                  text = path.read_text(errors="replace")
+                  for s in secrets:
+                      for part in s.split(","):
+                          for v in part.split(":"):
+                              if len(v) >= 8: text = text.replace(v, "[REDACTED]")
+                  path.write_text(re.sub(r"(?i)bearer\s+\S+", "Bearer [REDACTED]", text))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: acceptance-artifacts, path: artifacts/, if-no-files-found: ignore }
+      - if: always()
+        run: docker compose down -v

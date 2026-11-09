@@ -1,0 +1,52 @@
+# INJECTED INCIDENT — synthetic fault scenario for the IncidentForge lab.
+# PRIVATE: this file (and especially `ground_truth`) must never be given to the
+# investigator. The lab image is the only image that contains it.
+id: S1
+title: Incorrect payment-service endpoint
+synthetic: true
+split: development   # development | heldout (used by the evaluation runner, Milestone 4)
+
+ground_truth:
+  category: configuration_error
+  root_cause_component: checkout
+  faulty_setting: payment_url
+  failing_dependency_is_healthy: true
+  summary: >
+    A checkout runtime-config change set payment_url to port 8020 (digits
+    transposed from 8002). Nothing listens there, so every charge attempt fails
+    with a connection error while the payment simulator itself stays healthy.
+
+expected_symptoms:
+  - checkout POST /api/checkout returns 502 with code dependency_unavailable
+  - shop_dependency_requests_total{dependency="payment",outcome="connect_error"} rises
+  - payment service request rate drops to ~0 while its /health stays OK
+  - a checkout config_change event precedes the onset of errors
+  - inventory reservations are released (compensation), so stock is unchanged
+
+injection:
+  type: config_patch
+  service: checkout
+  patch:
+    payment_url: http://payment:8020
+  # Neutral wording on purpose: the change record must not reveal the fault.
+  actor: release-pipeline
+  summary: checkout config update
+  reason: routine configuration rollout
+
+cleanup:
+  type: restore_baseline_config
+  service: checkout
+
+supported_recovery:
+  action_type: rollback_config_version
+  target: checkout
+  description: Roll checkout runtime config back to the version active before the change.
+
+verification:
+  recovery:
+    - checkout_journey_succeeds
+    - payment_connect_errors_stop
+  regression:
+    - inventory_health_ok
+    - payment_health_ok
+    - declined_card_still_returns_402

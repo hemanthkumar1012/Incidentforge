@@ -1,0 +1,2 @@
+# Control-plane additions on top of requirements/shop.txt.
+PyJWT>=2.10,<3

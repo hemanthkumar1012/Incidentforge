@@ -1,0 +1,254 @@
+# IncidentForge local stack.
+#
+#   cp .env.example .env    # replace every change-me value
+#   make up                 # build, migrate, seed, start, wait until ready
+#
+# Networks:
+#   default  production shop, telemetry, control plane
+#   sandbox  validation copy of the shop. Sandbox services join ONLY this
+#            network, so they cannot resolve or reach production services.
+#            postgres (separate DB + role) and forge-worker join both.
+# Published ports bind to 127.0.0.1 only.
+
+x-shop-build: &shop-build
+  context: .
+  target: shop
+
+x-forge-build: &forge-build
+  context: .
+  target: forge
+
+x-health: &health
+  interval: 5s
+  timeout: 3s
+  retries: 30
+  start_period: 5s
+
+x-shop-env: &shop-env
+  SHOP_DATABASE_URL: postgresql+psycopg://shop_app:${SHOP_DB_PASSWORD:?set SHOP_DB_PASSWORD}@postgres:5432/shop
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+  LOKI_PUSH_URL: http://loki:3100/loki/api/v1/push
+  LAB_ADMIN_TOKEN: ${LAB_ADMIN_TOKEN:?set LAB_ADMIN_TOKEN}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-sandbox-env: &sandbox-env
+  SHOP_DATABASE_URL: postgresql+psycopg://sandbox_app:${SANDBOX_DB_PASSWORD:?set SANDBOX_DB_PASSWORD}@postgres:5432/shop_validation
+  LAB_ADMIN_TOKEN: ${SANDBOX_ADMIN_TOKEN:?set SANDBOX_ADMIN_TOKEN}
+  CONFIG_CACHE_TTL_S: "0"   # validation applies config and checks immediately
+  LOG_LEVEL: WARNING
+
+x-forge-env: &forge-env
+  FORGE_DATABASE_URL: postgresql+psycopg://forge_app:${FORGE_DB_PASSWORD:?set FORGE_DB_PASSWORD}@postgres:5432/forge
+  FORGE_READER_DATABASE_URL: postgresql+psycopg://forge_reader:${FORGE_READER_DB_PASSWORD:?set FORGE_READER_DB_PASSWORD}@postgres:5432/shop
+  FORGE_REMEDIATOR_DATABASE_URL: postgresql+psycopg://forge_remediator:${FORGE_REMEDIATOR_DB_PASSWORD:?set FORGE_REMEDIATOR_DB_PASSWORD}@postgres:5432/shop
+  SANDBOX_DATABASE_URL: postgresql+psycopg://sandbox_app:${SANDBOX_DB_PASSWORD}@postgres:5432/shop_validation
+  SANDBOX_ADMIN_TOKEN: ${SANDBOX_ADMIN_TOKEN}
+  FORGE_JWT_SECRET: ${FORGE_JWT_SECRET:?set FORGE_JWT_SECRET}
+  FORGE_DEFAULT_MODE: ${FORGE_DEFAULT_MODE:-runbook}
+  FORGE_BOOTSTRAP_USERS: ${FORGE_BOOTSTRAP_USERS:-}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+  DETECTOR_ENABLED: ${DETECTOR_ENABLED:-true}
+  LOKI_PUSH_URL: http://loki:3100/loki/api/v1/push
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      SHOP_DB_PASSWORD: ${SHOP_DB_PASSWORD}
+      LAB_DB_PASSWORD: ${LAB_DB_PASSWORD:?set LAB_DB_PASSWORD}
+      FORGE_DB_PASSWORD: ${FORGE_DB_PASSWORD}
+      FORGE_READER_DB_PASSWORD: ${FORGE_READER_DB_PASSWORD}
+      FORGE_REMEDIATOR_DB_PASSWORD: ${FORGE_REMEDIATOR_DB_PASSWORD}
+      SANDBOX_DB_PASSWORD: ${SANDBOX_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres/init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    networks: [default, sandbox]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d forge"]
+      <<: *health
+    mem_limit: 384m
+
+  # ------------------------------------------------------------ production shop
+  migrate:
+    build: *shop-build
+    image: incidentforge-shop:dev
+    command: ["sh", "-c", "alembic upgrade head && python -m shop.seed"]
+    environment:
+      SHOP_MIGRATION_DATABASE_URL: postgresql+psycopg://shop_app:${SHOP_DB_PASSWORD}@postgres:5432/shop
+    depends_on: { postgres: { condition: service_healthy } }
+    restart: "no"
+
+  inventory:
+    build: *shop-build
+    image: incidentforge-shop:dev
+    command: ["uvicorn", "shop.inventory.app:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment: *shop-env
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/ready', timeout=2)"]
+      <<: *health
+    mem_limit: 256m
+
+  payment:
+    build: *shop-build
+    image: incidentforge-shop:dev
+    command: ["uvicorn", "shop.payment.app:app", "--host", "0.0.0.0", "--port", "8002"]
+    environment: *shop-env
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/ready', timeout=2)"]
+      <<: *health
+    mem_limit: 192m
+
+  checkout:
+    build: *shop-build
+    image: incidentforge-shop:dev
+    command: ["uvicorn", "shop.checkout.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *shop-env
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      inventory: { condition: service_healthy }
+      payment: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=2)"]
+      <<: *health
+    mem_limit: 256m
+
+  # ------------------------------------------------------- validation sandbox
+  sandbox-migrate:
+    build: *shop-build
+    image: incidentforge-shop:dev
+    command: ["sh", "-c", "alembic upgrade head && python -m shop.seed --sandbox"]
+    environment:
+      SHOP_MIGRATION_DATABASE_URL: postgresql+psycopg://sandbox_app:${SANDBOX_DB_PASSWORD}@postgres:5432/shop_validation
+    networks: [sandbox]
+    depends_on: { postgres: { condition: service_healthy } }
+    restart: "no"
+
+  sandbox-inventory:
+    build: *shop-build
+    image: incidentforge-shop:dev
+    command: ["uvicorn", "shop.inventory.app:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment: *sandbox-env
+    networks: [sandbox]
+    depends_on: { sandbox-migrate: { condition: service_completed_successfully } }
+    mem_limit: 192m
+
+  sandbox-payment:
+    build: *shop-build
+    image: incidentforge-shop:dev
+    command: ["uvicorn", "shop.payment.app:app", "--host", "0.0.0.0", "--port", "8002"]
+    environment: *sandbox-env
+    networks: [sandbox]
+    mem_limit: 160m
+
+  sandbox-checkout:
+    build: *shop-build
+    image: incidentforge-shop:dev
+    command: ["uvicorn", "shop.checkout.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *sandbox-env
+    networks: [sandbox]
+    depends_on: { sandbox-migrate: { condition: service_completed_successfully } }
+    mem_limit: 192m
+
+  # ------------------------------------------------------------- control plane
+  forge-migrate:
+    build: *forge-build
+    image: incidentforge-forge:dev
+    command: ["alembic", "-c", "forge/alembic.ini", "upgrade", "head"]
+    environment:
+      FORGE_MIGRATION_DATABASE_URL: postgresql+psycopg://forge_app:${FORGE_DB_PASSWORD}@postgres:5432/forge
+    depends_on: { postgres: { condition: service_healthy } }
+    restart: "no"
+
+  forge-api:
+    build: *forge-build
+    image: incidentforge-forge:dev
+    command: ["uvicorn", "forge.api.app:app", "--host", "0.0.0.0", "--port", "8080"]
+    environment:
+      <<: *forge-env
+      EVAL_RESULTS_DIR: /app/eval-results
+    volumes: ["./artifacts/eval:/app/eval-results:ro"]
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      forge-migrate: { condition: service_completed_successfully }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=2)"]
+      <<: *health
+    mem_limit: 256m
+
+  forge-worker:
+    build: *forge-build
+    image: incidentforge-forge:dev
+    command: ["python", "-m", "forge.jobs.worker"]
+    environment: *forge-env
+    networks: [default, sandbox]
+    depends_on:
+      forge-api: { condition: service_healthy }
+    stop_grace_period: 60s
+    mem_limit: 256m
+
+  web:
+    build: { context: ./web }
+    image: incidentforge-web:dev
+    ports: ["127.0.0.1:3000:8081"]
+    depends_on: { forge-api: { condition: service_healthy } }
+    mem_limit: 64m
+
+  # ------------------------------------------------------------ observability
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=2d"]
+    volumes: ["./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["127.0.0.1:9090:9090"]
+    mem_limit: 384m
+
+  loki:
+    image: grafana/loki:3.7.9
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes: ["./observability/loki.yaml:/etc/loki/config.yaml:ro"]
+    ports: ["127.0.0.1:3100:3100"]
+    mem_limit: 384m
+
+  jaeger:
+    image: jaegertracing/jaeger:2.20.0
+    command: ["--config", "/etc/jaeger/config.yaml"]
+    volumes: ["./observability/jaeger.yaml:/etc/jaeger/config.yaml:ro"]
+    ports: ["127.0.0.1:16686:16686"]
+    mem_limit: 384m
+
+  # --------------------------------------------------------- on-demand tools
+  lab:
+    build: { context: ., target: lab }
+    image: incidentforge-lab:dev
+    profiles: ["tools"]
+    environment:
+      LAB_SHOP_DATABASE_URL: postgresql+psycopg://lab_admin:${LAB_DB_PASSWORD}@postgres:5432/shop
+      LAB_DATABASE_URL: postgresql+psycopg://lab_admin:${LAB_DB_PASSWORD}@postgres:5432/lab
+      LAB_ADMIN_TOKEN: ${LAB_ADMIN_TOKEN}
+      FORGE_URL: http://forge-api:8080
+      EVAL_OPERATOR: ${EVAL_OPERATOR:-}
+      EVAL_APPROVER: ${EVAL_APPROVER:-}
+      EVAL_OUTPUT_DIR: /app/artifacts/eval
+    volumes: ["./artifacts:/app/artifacts"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  loadgen:
+    build: *shop-build
+    image: incidentforge-shop:dev
+    profiles: ["load"]
+    command: ["python", "tools/loadgen.py", "--base-url", "http://checkout:8000", "--rps", "${LOAD_RPS:-3}", "--duration", "0"]
+    depends_on: { checkout: { condition: service_healthy } }
+
+networks:
+  default: {}
+  sandbox:
+    internal: true   # no egress; sandbox services cannot reach the internet or the default network
+
+volumes:
+  pgdata:

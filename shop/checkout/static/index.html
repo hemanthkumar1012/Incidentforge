@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge Supply — demo store</title>
+<style>
+  :root { --ink:#1d2433; --muted:#5b6475; --line:#d9dee7; --accent:#0f766e; --bad:#b42318; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; color:var(--ink); background:#f6f7f9; }
+  header { padding:16px 24px; background:#fff; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
+  .banner { font-size:13px; color:var(--muted); }
+  main { max-width:960px; margin:24px auto; padding:0 16px; display:grid; grid-template-columns:2fr 1fr; gap:24px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; }
+  table { width:100%; border-collapse:collapse; }
+  td, th { padding:8px 4px; border-bottom:1px solid var(--line); text-align:left; }
+  button { font:inherit; padding:6px 12px; border-radius:6px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--accent); }
+  select { font:inherit; padding:4px; }
+  #result { margin-top:12px; font-size:14px; white-space:pre-wrap; }
+  .ok { color:var(--accent); } .err { color:var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <strong>Forge Supply</strong>
+  <span class="banner">Demo store · synthetic catalogue · payments are simulated</span>
+</header>
+<main>
+  <section class="card">
+    <h2>Products</h2>
+    <table><thead><tr><th>SKU</th><th>Item</th><th>Price</th><th>Stock</th><th></th></tr></thead>
+      <tbody id="products"><tr><td colspan="5">Loading…</td></tr></tbody></table>
+  </section>
+  <section class="card">
+    <h2>Cart</h2>
+    <ul id="cart"></ul>
+    <label>Test card
+      <select id="card">
+        <option value="tok_test_visa">tok_test_visa (approves)</option>
+        <option value="tok_test_decline">tok_test_decline (declines)</option>
+      </select>
+    </label>
+    <p><button id="checkout">Check out</button> <button class="secondary" id="clear">Clear</button></p>
+    <div id="result"></div>
+  </section>
+</main>
+<script>
+const cart = new Map();
+const fmt = c => "$" + (c / 100).toFixed(2);
+async function loadProducts() {
+  const body = document.getElementById("products");
+  try {
+    const r = await fetch("/api/products");
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error ? data.error.message : r.status);
+    body.innerHTML = "";
+    for (const p of data.products) {
+      const tr = document.createElement("tr");
+      for (const v of [p.sku, p.name, fmt(p.price_cents), p.stock]) {
+        const td = document.createElement("td"); td.textContent = v; tr.appendChild(td);
+      }
+      const td = document.createElement("td"); const b = document.createElement("button");
+      b.textContent = "Add"; b.onclick = () => { cart.set(p.sku, (cart.get(p.sku) || 0) + 1); renderCart(); };
+      td.appendChild(b); tr.appendChild(td); body.appendChild(tr);
+    }
+  } catch (e) { body.innerHTML = ""; const tr = body.insertRow(); tr.insertCell().textContent = "Catalogue unavailable: " + e.message; }
+}
+function renderCart() {
+  const ul = document.getElementById("cart"); ul.innerHTML = "";
+  for (const [sku, qty] of cart) { const li = document.createElement("li"); li.textContent = `${sku} × ${qty}`; ul.appendChild(li); }
+}
+document.getElementById("clear").onclick = () => { cart.clear(); renderCart(); };
+document.getElementById("checkout").onclick = async () => {
+  const out = document.getElementById("result");
+  if (!cart.size) { out.textContent = "Cart is empty."; return; }
+  out.textContent = "Submitting…"; out.className = "";
+  const r = await fetch("/api/checkout", {
+    method: "POST", headers: {"Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID()},
+    body: JSON.stringify({customer_id: "storefront-user", card_token: document.getElementById("card").value,
+                          items: [...cart].map(([sku, qty]) => ({sku, qty}))})
+  });
+  const data = await r.json();
+  const rid = r.headers.get("X-Request-ID");
+  if (r.ok) { out.className = "ok"; out.textContent = `Order ${data.order_ref} confirmed · ${fmt(data.total_cents)}\nrequest ${rid}`; cart.clear(); renderCart(); loadProducts(); }
+  else { out.className = "err"; out.textContent = `Checkout failed (${r.status}): ${data.error.code}\nrequest ${rid}`; }
+};
+loadProducts();
+</script>
+</body>
+</html>
