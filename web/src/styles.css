@@ -218,3 +218,11 @@ kbd { font: 12px var(--mono); background: var(--muted-bg); color: var(--muted); 
 .egraph .gnode.ev:hover rect, .egraph .gnode.ev:focus-visible rect { stroke: var(--accent); } .egraph .gnode.ev:focus-visible { outline: none; }
 .egraph .gnode.shared rect { stroke-width: 3; stroke: var(--info); } .egraph .gnode.failed rect { stroke: var(--bad); }
 .egraph .link { fill: none; stroke-width: 1.6; } .egraph .link.supports { stroke: var(--ok); } .egraph .link.contradicts { stroke: var(--bad); stroke-dasharray: 5 4; }
+
+/* Evaluation charts */
+.eval-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin: 12px 0; }
+.eval-chart { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.eval-chart figcaption { font-weight: 600; font-size: 13px; margin-bottom: 8px; }
+.eval-row { display: grid; grid-template-columns: 96px 1fr 92px; gap: 8px; align-items: center; font-size: 12px; margin-bottom: 4px; }
+.eval-track { height: 10px; background: var(--muted-bg); border-radius: 5px; overflow: hidden; } .eval-fill { display: block; height: 100%; background: var(--accent); }
+.eval-fill.missing { background: transparent; } .eval-val { font-family: var(--mono); text-align: right; }
