@@ -52,7 +52,8 @@ Vitest/build · `scripts/m1_acceptance.py` · `scripts/e2e_flow.py` · `scripts/
   hypothesis-to-evidence graph, evaluation bar charts that print raw counts.
   Metrics page (session 4): `GET /api/system/timeseries` (forge/telemetry/dashboard.py: 5 fixed PromQL panels, each checked against the
   investigator PromQL guard, window allowlist 15/60/360 min, per-panel failure isolation; 13 pytest tests PASS) and SVG line charts
-  (legend, crosshair readout, keyboard access, table view). Series colours are the dataviz reference palette, validated for light and
+  (legend, crosshair readout, keyboard access, table view). Charts carry event markers for checkout config changes and
+  incidents opening (annotation logic: 5 more pytest tests PASS; 172 total backend tests pass, 2 skipped). Series colours are the dataviz reference palette, validated for light and
   dark surfaces (all checks PASS; the light-mode contrast WARN is covered by the legend, readout and table view). The Prometheus
   query path itself has NOT run against a live Prometheus; metric label names were read from shop/common/telemetry.py, not observed.
   Robustness: per-route error boundary, lazy-loaded pages, focus/title/live-region announcement on navigation (not yet exercised in a browser). Not rendered in a browser; visual quality and contrast are unchecked.
