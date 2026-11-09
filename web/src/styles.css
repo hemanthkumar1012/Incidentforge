@@ -177,3 +177,18 @@ input, select, textarea { font: inherit; padding: 7px 9px; border: 1px solid var
   .topbar { padding: 10px 16px; position: static; } .workspace { grid-template-columns: 1fr; } .main { padding: 16px; }
 }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Command palette and keyboard help */
+.palette { border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(620px, calc(100% - 32px)); background: var(--surface); color: var(--ink);
+  margin-top: 12vh; box-shadow: 0 20px 50px rgb(0 0 0 / .35); overflow: hidden; }
+.palette::backdrop { background: rgb(0 0 0 / .5); backdrop-filter: blur(2px); }
+.palette input { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 14px 16px; font-size: 16px; }
+.palette input:focus-visible { outline-offset: -3px; }
+.palette ul { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow-y: auto; }
+.palette li { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; }
+.palette li.active { background: var(--accent-soft); }
+.palette-group { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); min-width: 74px; }
+.palette-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-empty { color: var(--muted); cursor: default !important; }
+kbd { font: 12px var(--mono); background: var(--muted-bg); color: var(--muted); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 6px; white-space: nowrap; }
+.shortcut-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; } .shortcut-list dt { text-align: right; } .shortcut-list dd { margin: 0; }
