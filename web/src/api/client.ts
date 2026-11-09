@@ -7,7 +7,7 @@
 // documented next step (docs/security.md).
 import type {
   Approval, AuditEvent, EvaluationRun, Incident, InvestigationDetail, Investigation, Me, Overview, Page,
-  Proposal, RecoveryJob, ValidationRun, Workspace,
+  Proposal, RecoveryJob, Timeseries, ValidationRun, Workspace,
 } from "./types";
 
 export class ApiError extends Error {
@@ -77,6 +77,7 @@ export const api = {
   decide: (id: string, approve: boolean, note: string, bindingDigest: string) =>
     post<Approval>(`/api/approvals/${encodeURIComponent(id)}/decision`, { approve, note, binding_digest: bindingDigest }),
   requestRecovery: (proposalId: string) => post<RecoveryJob>(`/api/proposals/${encodeURIComponent(proposalId)}/recovery`),
+  timeseries: (window: number, s?: AbortSignal) => get<Timeseries>(`/api/system/timeseries?window=${window}`, s),
   audit: (limit: number, s?: AbortSignal) => get<{ items: AuditEvent[] }>(`/api/audit?limit=${limit}`, s),
   evaluations: (s?: AbortSignal) => get<{ runs: EvaluationRun[]; source: string }>("/api/evaluations", s),
 };
