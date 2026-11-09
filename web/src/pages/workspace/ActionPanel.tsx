@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiError, api } from "../../api/client";
 import type { Approval, Proposal, RecoveryJob, ValidationRun } from "../../api/types";
 import { useAuth } from "../../auth";
+import { ExpiryMeter } from "../../components/ExpiryMeter";
 import { Badge, ChangeTable, ConfirmDialog, Time } from "../../components/ui";
 
 interface Props {
@@ -106,7 +107,7 @@ function ApprovalSummary({ approval }: { approval: Approval }) {
     expired: "Expired before a decision; request a new approval.", invalidated: "Stale: the proposal was re-validated or production changed. Request a new approval.",
     approved: "Approved for this exact action.", consumed: "Used by the execution below.",
   };
-  return <p><Badge value={approval.status} /> {notes[approval.status]} <span className="muted">Requested by {approval.requested_by}{approval.decided_by && `, decided by ${approval.decided_by}`} · expires <Time iso={approval.expires_at} /></span></p>;
+  return <p><Badge value={approval.status} /> {notes[approval.status]} <span className="muted">Requested by {approval.requested_by}{approval.decided_by && `, decided by ${approval.decided_by}`} · expires <Time iso={approval.expires_at} /></span>{approval.status === "pending" && <> <ExpiryMeter requestedAt={approval.requested_at} expiresAt={approval.expires_at} /></>}</p>;
 }
 
 export function DecisionButtons({ approval, onDone }: { approval: Approval; onDone: () => void }) {
