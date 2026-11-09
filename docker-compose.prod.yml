@@ -1,0 +1,57 @@
+# Production overlay: control-plane data in Supabase, TLS in front of forge-api, nothing else published.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# Requires Docker Compose >= 2.24 (uses !reset). The local postgres container still holds the shop,
+# lab and validation databases; only the `forge` control-plane database moves to Supabase.
+# FORGE_DB_PASSWORD must still be set (the base file interpolates it); it is unused for forge-api.
+
+x-supabase-forge: &supabase-forge
+  FORGE_DATABASE_URL: ${SUPABASE_FORGE_DATABASE_URL:?set SUPABASE_FORGE_DATABASE_URL (session pooler, sslmode=require)}
+
+services:
+  forge-migrate:
+    environment:
+      FORGE_MIGRATION_DATABASE_URL: ${SUPABASE_FORGE_DATABASE_URL:?set SUPABASE_FORGE_DATABASE_URL}
+
+  forge-api:
+    environment:
+      <<: *supabase-forge
+      FORGE_CORS_ORIGINS: ""
+    ports: !reset []
+    restart: unless-stopped
+
+  forge-worker:
+    environment:
+      <<: *supabase-forge
+    restart: unless-stopped
+
+  # The SPA is served by Vercel in this topology; the local nginx image is not needed.
+  web:
+    profiles: ["local-ui"]
+    ports: !reset []
+
+  # Observability and internal UIs stay on the private network.
+  prometheus:
+    ports: !reset []
+  loki:
+    ports: !reset []
+  jaeger:
+    ports: !reset []
+  checkout:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2.10-alpine
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    ports: ["80:80", "443:443"]
+    depends_on: { forge-api: { condition: service_healthy } }
+    restart: unless-stopped
+    mem_limit: 64m
+
+volumes:
+  caddy-data: {}
