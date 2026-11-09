@@ -1,4 +1,5 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import type { Annotation } from "../api/types";
 import { allTimes, colorSlots, formatValue, linePath, nearestIndex, niceCeil, spreadLabels, yTicks, type SeriesIn } from "../lib/chart";
 
 const W = 640;
@@ -13,7 +14,10 @@ const clock = (t: number) => new Date(t * 1000).toLocaleTimeString(undefined, { 
 
 // Line chart drawn in SVG. Labels and series names come from the API and are only ever rendered as text.
 // Reachable without a pointer: arrow keys move the readout, and a table view lists the same values.
-export function LineChart({ title, unit, series, error }: { title: string; unit: string; series: SeriesIn[]; error: string | null }) {
+export function LineChart({ title, unit, series, error, annotations = [], range }: {
+  title: string; unit: string; series: SeriesIn[]; error: string | null;
+  annotations?: Annotation[]; range?: [number, number];   // range = the query window, so event markers line up with the axis
+}) {
   const uid = useId();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -22,8 +26,9 @@ export function LineChart({ title, unit, series, error }: { title: string; unit:
   const slots = useMemo(() => colorSlots(series.map((s) => s.label)), [series]);
   const visible = series.filter((s) => !hidden.has(s.label));
   const times = useMemo(() => allTimes(series), [series]);
-  const tMin = times[0] ?? 0;
-  const tMax = times[times.length - 1] ?? 1;
+  const tMin = range?.[0] ?? times[0] ?? 0;
+  const tMax = range?.[1] ?? times[times.length - 1] ?? 1;
+  const events = annotations.filter((a) => a.ts >= tMin && a.ts <= tMax);
   const peak = Math.max(0, ...visible.flatMap((s) => s.points.map((p) => p[1] ?? 0)));
   const top = niceCeil(peak);
   const x = (t: number) => M.l + (tMax === tMin ? PLOT_W / 2 : ((t - tMin) / (tMax - tMin)) * PLOT_W);
@@ -79,6 +84,12 @@ export function LineChart({ title, unit, series, error }: { title: string; unit:
                 <text key={f} className="tick" x={M.l + f * PLOT_W} y={H - 8} textAnchor={f === 0 ? "start" : f === 1 ? "end" : "middle"}>{clock(tMin + f * (tMax - tMin))}</text>
               ))}
               {visible.map((s) => <path key={s.label} className="series-line" d={linePath(s.points, x, y)} stroke={color(s.label)} />)}
+              {events.map((a) => (
+                <g key={`${a.kind}-${a.ref}`} className={`event ${a.kind}`}>
+                  <title>{`${new Date(a.ts * 1000).toLocaleTimeString()} · ${a.label}`}</title>
+                  <line x1={x(a.ts)} x2={x(a.ts)} y1={M.t + 12} y2={M.t + PLOT_H} />
+                  <circle cx={x(a.ts)} cy={M.t + 6} r="7" /><text x={x(a.ts)} y={M.t + 10} textAnchor="middle">{a.kind === "incident" ? "!" : "Δ"}</text>
+                </g>))}
               {direct.filter((d) => d.show).map((d) => <text key={d.label} className="direct" x={W - M.r + 8} y={d.y + 4}>{d.label}</text>)}
               {readout !== null && <line className="crosshair" x1={x(readout)} x2={x(readout)} y1={M.t} y2={M.t + PLOT_H} />}
               {readout !== null && visible.map((s) => {
