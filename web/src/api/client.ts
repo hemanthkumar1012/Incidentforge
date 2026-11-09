@@ -77,5 +77,6 @@ export const api = {
   decide: (id: string, approve: boolean, note: string, bindingDigest: string) =>
     post<Approval>(`/api/approvals/${encodeURIComponent(id)}/decision`, { approve, note, binding_digest: bindingDigest }),
   requestRecovery: (proposalId: string) => post<RecoveryJob>(`/api/proposals/${encodeURIComponent(proposalId)}/recovery`),
+  audit: (limit: number, s?: AbortSignal) => get<{ items: AuditEvent[] }>(`/api/audit?limit=${limit}`, s),
   evaluations: (s?: AbortSignal) => get<{ runs: EvaluationRun[]; source: string }>("/api/evaluations", s),
 };
