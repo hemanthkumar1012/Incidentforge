@@ -18,6 +18,7 @@ const Overview = lazy(() => import("./pages/Overview").then((m) => ({ default: m
 const Incidents = lazy(() => import("./pages/Incidents").then((m) => ({ default: m.Incidents })));
 const IncidentWorkspace = lazy(() => import("./pages/workspace/IncidentWorkspace").then((m) => ({ default: m.IncidentWorkspace })));
 const ApprovalQueue = lazy(() => import("./pages/ApprovalQueue").then((m) => ({ default: m.ApprovalQueue })));
+const Metrics = lazy(() => import("./pages/Metrics").then((m) => ({ default: m.Metrics })));
 const Evaluation = lazy(() => import("./pages/Evaluation").then((m) => ({ default: m.Evaluation })));
 
 const SIDEBAR_KEY = "incidentforge.sidebar";
@@ -51,7 +52,8 @@ function Breadcrumbs() {
   if (parts[0] === "incidents") {
     trail.push({ to: parts[1] ? "/incidents" : undefined, text: "Incidents" });
     if (parts[1]) trail.push({ text: `Incident ${parts[1].slice(0, 8)}` });
-  } else if (parts[0] === "approvals") trail.push({ text: "Approvals" });
+  } else if (parts[0] === "metrics") trail.push({ text: "Metrics" });
+  else if (parts[0] === "approvals") trail.push({ text: "Approvals" });
   else if (parts[0] === "evaluation") trail.push({ text: "Evaluation" });
   else if (parts.length) trail.push({ text: "Not found" });
   const shown = parts.length ? trail : [{ text: "Overview" }];
@@ -80,6 +82,7 @@ function Shell({ children }: { children: ReactNode }) {
   const shortcuts: Shortcut[] = useMemo(() => [
     { keys: "g o", description: "Go to Overview", run: () => navigate("/") },
     { keys: "g i", description: "Go to Incidents", run: () => navigate("/incidents") },
+    { keys: "g m", description: "Go to Metrics", run: () => navigate("/metrics") },
     { keys: "g a", description: "Go to Approvals", run: () => navigate("/approvals") },
     { keys: "g e", description: "Go to Evaluation", run: () => navigate("/evaluation") },
     { keys: "t", description: "Toggle light/dark theme", run: toggle },
@@ -117,6 +120,7 @@ function Shell({ children }: { children: ReactNode }) {
         <div className="brand"><span className="brand-mark" aria-hidden="true" /><span className="label">IncidentForge</span></div>
         <NavItem to="/" end icon="overview" label="Overview" />
         <NavItem to="/incidents" icon="incidents" label="Incidents" />
+        <NavItem to="/metrics" icon="metrics" label="Metrics" />
         <NavItem to="/approvals" icon="approvals" label="Approvals" extra={can("approval:decide") ? <PendingApprovals /> : null} />
         <NavItem to="/evaluation" icon="evaluation" label="Evaluation" />
         <div className="spacer" />
@@ -170,6 +174,7 @@ export function App() {
       <Route path="/" element={protectedRoute(<Overview />)} />
       <Route path="/incidents" element={protectedRoute(<Incidents />)} />
       <Route path="/incidents/:id" element={protectedRoute(<IncidentWorkspace />)} />
+      <Route path="/metrics" element={protectedRoute(<Metrics />)} />
       <Route path="/approvals" element={protectedRoute(<ApprovalQueue />)} />
       <Route path="/evaluation" element={protectedRoute(<Evaluation />)} />
       <Route path="*" element={protectedRoute(<p>Page not found.</p>)} />
