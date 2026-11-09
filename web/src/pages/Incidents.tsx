@@ -29,20 +29,23 @@ export function Incidents() {
 
   return (
     <>
-      <h1>Incidents</h1>
+      <div className="page-head"><div className="grow"><h1>Incidents</h1>
+        <p className="muted">Opened by the detector or registered by a responder. Select one to investigate and repair.</p></div></div>
       <div className="toolbar" role="search">
         <div className="field"><label htmlFor="q">Search titles</label>
           <input id="q" defaultValue={q} onKeyDown={(e) => { if (e.key === "Enter") set("q", (e.target as HTMLInputElement).value); }} /></div>
-        <div className="field"><label htmlFor="status">Status</label>
-          <select id="status" value={status} onChange={(e) => set("status", e.target.value)}>
-            {STATUSES.map((s) => <option key={s} value={s}>{s || "all"}</option>)}</select></div>
+        <div className="field"><span id="status-l" style={{ display: "block", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Status</span>
+          <div className="chips" role="group" aria-labelledby="status-l">
+            {STATUSES.map((s) => (
+              <button key={s} className="chip" aria-pressed={status === s} onClick={() => set("status", s)}>{s || "all"}</button>))}
+          </div></div>
       </div>
       {can("incident:register") && <RegisterIncident />}
       <StaleNotice stale={list.stale} lastUpdated={list.lastUpdated} />
       {list.loading ? <Loading what="incidents" /> : list.error && !list.data ? <ErrorState error={list.error} onRetry={list.refresh} /> :
         !list.data?.items.length ? <Empty>No incidents match. The detector opens one automatically when checkout failures cross the threshold, or register one manually.</Empty> : (
         <div className="card">
-          <table className="table">
+          <div className="table-wrap"><table className="table">
             <thead><tr>
               <th scope="col">Title</th>
               <th scope="col" aria-sort={sort === "severity" ? (order === "asc" ? "ascending" : "descending") : "none"}><button onClick={() => sortBy("severity")}>Severity</button></th>
@@ -55,7 +58,7 @@ export function Incidents() {
                 <td><Link to={`/incidents/${i.id}`}>{i.title}</Link>{i.synthetic_traffic && <span className="muted"> · synthetic traffic</span>}</td>
                 <td><Badge value={i.severity} /></td><td><Badge value={i.status} /></td><td>{i.source}</td><td><Time iso={i.created_at} /></td>
               </tr>))}</tbody>
-          </table>
+          </table></div>
           <nav className="pager" aria-label="Pagination">
             <button disabled={page <= 1} onClick={() => set("page", String(page - 1))}>Previous</button>
             <span>Page {page} of {pages} · {list.data.total} incidents</span>
