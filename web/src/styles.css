@@ -176,3 +176,4 @@ input, select, textarea { font: inherit; padding: 7px 9px; border: 1px solid var
   .collapsed .nav .label { display: inline; } .nav button.collapse-toggle { display: none; }
   .topbar { padding: 10px 16px; position: static; } .workspace { grid-template-columns: 1fr; } .main { padding: 16px; }
 }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
