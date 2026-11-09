@@ -29,6 +29,7 @@ describe("titleFor", () => {
   it("names each route and falls back for unknown paths", () => {
     expect(titleFor("/")).toBe("Overview");
     expect(titleFor("/incidents")).toBe("Incidents");
+    expect(titleFor("/metrics")).toBe("Metrics");
     expect(titleFor("/incidents/abc")).toBe("Incident");
     expect(titleFor("/nope")).toBe("Not found");
   });
