@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import type { Evidence, Investigation, InvestigationDetail } from "../../api/types";
 import { Badge, ErrorState, Loading, StaleNotice, Time, UntrustedBlock } from "../../components/ui";
+import { EvidenceGraph } from "../../components/EvidenceGraph";
 import { Waterfall } from "../../components/Waterfall";
 import { usePolling } from "../../hooks/usePolling";
 
@@ -38,6 +39,7 @@ export function InvestigationView({ investigation, view = "all", onCite }: {
         {inv.status === "failed" && <p className="state failed" role="alert">Investigation failed: {inv.failure_reason}</p>}
         {inv.status === "budget_exhausted" && <p className="state denied">Budget exhausted before a conclusion: {inv.failure_reason}</p>}
         <Diagnosis inv={inv} onCite={cite} />
+        {inv.diagnosis?.outcome === "diagnosed" && <EvidenceGraph hypotheses={inv.diagnosis.hypotheses} evidence={inv.evidence} onSelect={cite} />}
         <Waterfall evidence={inv.evidence} onSelect={cite} />
         <h3>Timeline</h3>
         {inv.steps.length === 0 ? <p className="muted">No steps yet.</p> : (
