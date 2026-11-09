@@ -1,10 +1,17 @@
 import { api } from "../api/client";
+import { ActivityFeed } from "../components/ActivityFeed";
 import { DependencyMap } from "../components/DependencyMap";
 import { Badge, ErrorState, Kpi, Loading, StaleNotice, Time } from "../components/ui";
 import { usePolling } from "../hooks/usePolling";
 
 export function Overview() {
   const { data, error, loading, stale, lastUpdated, refresh } = usePolling((s) => api.overview(s), 10_000);
+  // Totals come from the server's pagination counts, not from counting rows on one page.
+  const active = usePolling(async (s) => {
+    const [open, investigating, diagnosed, remediating] = await Promise.all(
+      ["open", "investigating", "diagnosed", "remediating"].map((status) => api.incidents({ status }, s)));
+    return { open: open!.total, investigating: investigating!.total, diagnosed: diagnosed!.total, remediating: remediating!.total };
+  }, 15_000);
   if (loading) return <Loading what="system overview" />;
   if (error && !data) return <ErrorState error={error} onRetry={refresh} />;
   if (!data) return null;
@@ -31,6 +38,9 @@ export function Overview() {
           hint={allReady ? "all readiness probes passing" : services.length ? "see the map below" : "no services reported"} />
         <Kpi label="Active checkout config" value={config ? `v${config.version}` : "—"} edge={config ? "info" : "warn"}
           hint={config ? `${data.config_versions.length} versions recorded` : "configuration unavailable"} />
+        <Kpi label="Active incidents" edge={!active.data ? undefined : active.data.open + active.data.investigating + active.data.diagnosed + active.data.remediating ? "warn" : "ok"}
+          value={active.data ? active.data.open + active.data.investigating + active.data.diagnosed + active.data.remediating : "—"}
+          hint={active.data ? `${active.data.open} open · ${active.data.investigating} investigating · ${active.data.diagnosed} diagnosed · ${active.data.remediating} remediating` : active.error ? "count unavailable" : "loading"} />
         <Kpi label="Investigator" value={data.investigation_default_mode}
           hint={data.llm_configured ? `Gemini · ${data.llm_model}` : "no LLM key: runbook mode only"} edge="info" />
         <Kpi label="Investigator access" value="read-only" hint={`${data.investigator_scopes.length} scopes`} edge="ok" />
@@ -76,6 +86,11 @@ export function Overview() {
               ))}</tbody>
             </table>
           </div>
+        </section>
+
+        <section className="card" aria-labelledby="act-h">
+          <h2 id="act-h">Recent activity</h2>
+          <ActivityFeed />
         </section>
 
         <section className="card" aria-labelledby="inv-h">
