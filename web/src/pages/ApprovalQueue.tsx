@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { ExpiryMeter } from "../components/ExpiryMeter";
 import { Badge, ChangeTable, Empty, ErrorState, Loading, StaleNotice, Time } from "../components/ui";
 import { usePolling } from "../hooks/usePolling";
 import { DecisionButtons } from "./workspace/ActionPanel";
@@ -21,7 +22,7 @@ export function ApprovalQueue() {
         !q.data?.items.length ? <Empty>No {status} approvals.</Empty> : q.data.items.map((a) => (
           <section key={a.id} className="card" aria-label={`Approval ${a.id}`}>
             <div className="header-row"><h2 style={{ margin: 0 }}>{String(a.binding.action_type)} on {String(a.binding.target)}</h2><Badge value={a.status} /></div>
-            <p className="muted">Requested by {a.requested_by} · <Time iso={a.requested_at} /> · expires <Time iso={a.expires_at} />
+            <p className="muted">Requested by {a.requested_by} · <Time iso={a.requested_at} /> · expires <Time iso={a.expires_at} /> {a.status === "pending" && <ExpiryMeter requestedAt={a.requested_at} expiresAt={a.expires_at} />}
               {a.incident_id && <> · <Link to={`/incidents/${a.incident_id}`}>open incident</Link></>}</p>
             <ChangeTable changes={a.expected_effect ?? []} />
             <p className="muted" style={{ fontSize: 13 }}>Binding digest <code>{a.binding_digest}</code></p>
