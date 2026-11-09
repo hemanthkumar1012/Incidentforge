@@ -247,3 +247,12 @@ kbd { font: 12px var(--mono); background: var(--muted-bg); color: var(--muted); 
 .chart-tip { position: absolute; top: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 12px; box-shadow: 0 6px 18px rgb(0 0 0 / .2); pointer-events: none; white-space: nowrap; z-index: 2; }
 .tip-time { color: var(--muted); margin-bottom: 2px; } .tip-row { display: flex; gap: 6px; align-items: center; } .tip-row strong { font-variant-numeric: tabular-nums; }
 .chart-table { margin-top: 8px; font-size: 13px; } .chart-table summary { cursor: pointer; color: var(--muted); }
+
+/* Event markers on charts: status colours with a glyph and dash pattern, so they never rely on colour alone */
+.chart-wrap .event line { stroke-width: 1.5; } .chart-wrap .event.config_change line { stroke: var(--warn); stroke-dasharray: 2 4; }
+.chart-wrap .event.incident line { stroke: var(--bad); }
+.chart-wrap .event circle { fill: var(--surface); stroke-width: 1.5; } .chart-wrap .event.config_change circle { stroke: var(--warn); } .chart-wrap .event.incident circle { stroke: var(--bad); }
+.chart-wrap .event text { font: 700 9px var(--font); } .chart-wrap .event.config_change text { fill: var(--warn); } .chart-wrap .event.incident text { fill: var(--bad); }
+.event-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; } .event-list li { display: flex; gap: 8px; align-items: baseline; }
+.event-key { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid; font: 700 11px var(--font); flex: none; }
+.event-key.config_change { color: var(--warn); border-color: var(--warn); } .event-key.incident { color: var(--bad); border-color: var(--bad); }
