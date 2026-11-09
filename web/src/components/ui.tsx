@@ -23,8 +23,30 @@ export function Time({ iso }: { iso: string | null | undefined }) {
   return <time dateTime={iso} title={iso}>{text}</time>;
 }
 
+// Skeleton blocks hint at the layout while data loads; the text keeps the state announced to screen readers.
 export function Loading({ what }: { what: string }) {
-  return <p className="state" role="status" aria-live="polite">Loading {what}…</p>;
+  return (
+    <div className="state" role="status" aria-live="polite">
+      <p className="muted" style={{ margin: "0 0 10px" }}>Loading {what}…</p>
+      <span className="skeleton" aria-hidden="true" style={{ height: 14, width: "62%", marginBottom: 8 }} />
+      <span className="skeleton" aria-hidden="true" style={{ height: 14, width: "88%", marginBottom: 8 }} />
+      <span className="skeleton" aria-hidden="true" style={{ height: 14, width: "45%" }} />
+    </div>
+  );
+}
+
+export type Edge = "ok" | "warn" | "bad" | "info";
+
+// One headline number. Values come from live API responses; callers pass "—" when a value is unknown
+// rather than a placeholder that could be mistaken for a real measurement.
+export function Kpi({ label, value, hint, edge }: { label: string; value: ReactNode; hint?: ReactNode; edge?: Edge }) {
+  return (
+    <div className={`kpi${edge ? ` tone-${edge}-edge` : ""}`}>
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">{value}</div>
+      {hint && <div className="kpi-hint">{hint}</div>}
+    </div>
+  );
 }
 
 export function Empty({ children }: { children: ReactNode }) {
