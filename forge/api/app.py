@@ -35,6 +35,7 @@ from forge.investigation.tool_catalog import INVESTIGATOR_SCOPES
 from forge.services.common import ServiceError
 from forge.services.users import authenticate, ensure_bootstrap_users
 from forge.settings import ForgeSettings
+from forge.telemetry.dashboard import WINDOWS_MINUTES, fetch_dashboard
 from forge.telemetry.ports import TelemetryUnavailable
 from forge.telemetry.shop_adapters import HttpDiagnostics
 from forge.wiring import Container
@@ -152,6 +153,20 @@ def system_overview(
         "investigator_scopes": sorted(INVESTIGATOR_SCOPES),
         "viewer": actor.username,
     }
+
+
+class InvalidWindow(ServiceError):
+    status_code, code = 422, "invalid_window"
+
+
+@app.get("/api/system/timeseries", tags=["system"])
+def system_timeseries(
+    window: int = 60, _: Actor = Depends(current_actor), c: Container = Depends(container)
+) -> dict[str, Any]:
+    """Fixed dashboard panels from Prometheus. The client picks only a window from a short allowlist."""
+    if window not in WINDOWS_MINUTES:
+        raise InvalidWindow(f"window must be one of {list(WINDOWS_MINUTES)} minutes")
+    return fetch_dashboard(c.prometheus, window)
 
 
 @app.get("/api/audit", tags=["audit"])
