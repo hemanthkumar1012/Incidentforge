@@ -1,20 +1,24 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, Suspense, lazy, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api } from "./api/client";
 import { RequireAuth, useAuth } from "./auth";
 import { CommandPalette } from "./components/CommandPalette";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Icon, type IconName } from "./components/icons";
-import { ConfirmDialog } from "./components/ui";
+import { ConfirmDialog, Loading } from "./components/ui";
 import { usePolling } from "./hooks/usePolling";
+import { useRouteAnnouncer } from "./hooks/useRouteAnnouncer";
 import { useShortcuts, type Shortcut } from "./hooks/useShortcuts";
 import type { Command } from "./lib/palette";
-import { ApprovalQueue } from "./pages/ApprovalQueue";
-import { Evaluation } from "./pages/Evaluation";
-import { Incidents } from "./pages/Incidents";
 import { Login } from "./pages/Login";
-import { Overview } from "./pages/Overview";
-import { IncidentWorkspace } from "./pages/workspace/IncidentWorkspace";
 import { useTheme } from "./theme";
+
+// Pages load on demand so the sign-in screen and shell do not pay for the evidence viewer, charts and graph code.
+const Overview = lazy(() => import("./pages/Overview").then((m) => ({ default: m.Overview })));
+const Incidents = lazy(() => import("./pages/Incidents").then((m) => ({ default: m.Incidents })));
+const IncidentWorkspace = lazy(() => import("./pages/workspace/IncidentWorkspace").then((m) => ({ default: m.IncidentWorkspace })));
+const ApprovalQueue = lazy(() => import("./pages/ApprovalQueue").then((m) => ({ default: m.ApprovalQueue })));
+const Evaluation = lazy(() => import("./pages/Evaluation").then((m) => ({ default: m.Evaluation })));
 
 const SIDEBAR_KEY = "incidentforge.sidebar";
 
@@ -68,6 +72,8 @@ function Shell({ children }: { children: ReactNode }) {
   const { theme, toggle } = useTheme();
   const [collapsed, setCollapsed] = useState(storedCollapsed);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const announcement = useRouteAnnouncer();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -138,7 +144,11 @@ function Shell({ children }: { children: ReactNode }) {
             <Icon name={theme === "dark" ? "sun" : "moon"} />
           </button>
         </header>
-        <main id="main" className="main" tabIndex={-1}>{children}</main>
+        <main id="main" className="main" tabIndex={-1}>
+          {/* Keyed by path so an error on one page does not stick after navigating away. */}
+          <ErrorBoundary key={pathname}><Suspense fallback={<Loading what="page" />}>{children}</Suspense></ErrorBoundary>
+        </main>
+        <div className="sr-only" role="status" aria-live="polite">{announcement}</div>
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
       <ConfirmDialog open={helpOpen} title="Keyboard shortcuts" confirmLabel="Close" onConfirm={() => setHelpOpen(false)} onCancel={() => setHelpOpen(false)}>
