@@ -86,4 +86,8 @@ export interface TimeseriesPanel {
   id: string; title: string; unit: string; error: string | null;
   series: { label: string; points: [number, number | null][] }[];
 }
-export interface Timeseries { window_minutes: number; step_s: number; generated_at: string; panels: TimeseriesPanel[] }
+export interface Annotation { ts: number; kind: "config_change" | "incident"; ref: string; label: string }
+export interface Timeseries {
+  window_minutes: number; step_s: number; generated_at: string; panels: TimeseriesPanel[];
+  annotations: Annotation[]; annotations_error: string | null;
+}
